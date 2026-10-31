@@ -1,0 +1,15 @@
+Project: GudMarket
+Architecture: Modular Monolith
+Backend: ASP.NET Core Web API (.NET 8)
+Frontend: React (Vite) + TypeScript + Tailwind CSS
+Database: PostgreSQL 16 (chạy Docker)
+Database GUI: PgAdmin 4 (Port 5050)
+Payment Gateway: payOS (VietQR webhook)
+Dev Port Mapping:
+  - Frontend Dev: http://localhost:5173
+  - Backend API: http://localhost:5xxx/swagger
+  - PgAdmin: http://localhost:5050
+  - Docker Production Port: http://localhost:4299
+Documentation:
+  - Requirements & User Stories: plan.md
+  - UI/UX & Wireframes: Design.md
