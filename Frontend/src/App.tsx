@@ -6,6 +6,7 @@ import { AuthModal } from './components/AuthModal';
 import { CreateListingModal } from './components/CreateListingModal';
 import { UserMenuDropdown } from './components/UserMenuDropdown';
 import { MyListingsView } from './pages/MyListingsView';
+import { OrdersView } from './pages/OrdersView';
 import { setAuthToken } from './api/client';
 
 const INITIAL_PRODUCTS: Product[] = [
@@ -90,21 +91,61 @@ const INITIAL_PRODUCTS: Product[] = [
 ];
 
 const SAMPLE_ORDER: Order = {
-  id: 'order-sample',
+  id: 'order-1',
   orderCode: 849201,
   productId: 'prod-macbook-m1',
   productTitle: 'MacBook Air M1 2020 (8GB/256GB) Chính Hãng',
-  buyerId: 'user-buyer',
-  sellerId: 'user-seller',
+  productImageUrl: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80',
+  buyerId: 'user-default',
+  sellerId: 'user-seller-1',
   sellerName: 'Trần Minh',
   amount: 11500000,
   platformFee: 575000,
   sellerNetAmount: 10925000,
   status: 'ESCROW_HOLDING',
-  deadlineAt: '2026-11-04T18:00:00.000Z',
+  deadlineAt: new Date(Date.now() + 71 * 3600 * 1000 + 58 * 60 * 1000).toISOString(),
   createdAt: '2026-11-01T18:00:00.000Z',
   updatedAt: '2026-11-01T18:00:00.000Z',
 };
+
+const INITIAL_ORDERS: Order[] = [
+  SAMPLE_ORDER,
+  {
+    id: 'order-2',
+    orderCode: 928374,
+    productId: 'prod-sony-a6400',
+    productTitle: 'Máy ảnh Sony A6400 + Lens Kit 16-50mm',
+    productImageUrl: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=600&q=80',
+    buyerId: 'user-default',
+    sellerId: 'user-seller-2',
+    sellerName: 'Lê Hoàng',
+    amount: 14200000,
+    platformFee: 710000,
+    sellerNetAmount: 13490000,
+    status: 'DELIVERED',
+    deadlineAt: new Date(Date.now() + 47 * 3600 * 1000 + 45 * 60 * 1000).toISOString(),
+    shippingTrackingCode: 'VN8839201',
+    createdAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'order-3',
+    orderCode: 736192,
+    productId: 'prod-sofa',
+    productTitle: 'Sofa Văng Nỉ Xanh Rêu 1m8 Khung Gỗ Sồi',
+    productImageUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=600&q=80',
+    buyerId: 'user-buyer-other',
+    sellerId: 'user-default',
+    sellerName: 'Nguyễn Văn An',
+    amount: 2450000,
+    platformFee: 122500,
+    sellerNetAmount: 2327500,
+    status: 'ESCROW_HOLDING',
+    deadlineAt: new Date(Date.now() + 68 * 3600 * 1000).toISOString(),
+    createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>({
@@ -118,8 +159,9 @@ export function App() {
     updatedAt: '2026-11-01T00:00:00.000Z',
   });
 
-  const [currentView, setCurrentView] = useState<'CATALOG' | 'MY_LISTINGS'>('CATALOG');
+  const [currentView, setCurrentView] = useState<'CATALOG' | 'MY_LISTINGS' | 'ORDERS'>('CATALOG');
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
 
@@ -162,6 +204,51 @@ export function App() {
   const handlePaidConfirmation = () => {
     setTrackNode(1);
     setModalView('STATE_C');
+    const newPaidOrder: Order = {
+      ...activeOrder,
+      status: 'ESCROW_HOLDING',
+      deadlineAt: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setOrders((prev) => [newPaidOrder, ...prev.filter((o) => o.id !== newPaidOrder.id)]);
+  };
+
+  const handleUpdateTrackingCode = (orderId: string, trackingCode: string) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              shippingTrackingCode: trackingCode,
+              status: 'SHIPPING',
+              updatedAt: new Date().toISOString(),
+            }
+          : o
+      )
+    );
+  };
+
+  const handleConfirmReceived = (orderId: string) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              status: 'COMPLETED',
+              completedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : o
+      )
+    );
+    alert('Đã xác nhận nhận hàng đúng mô tả! GudMarket đã chuyển tiền cho người bán.');
+  };
+
+  const handleRequestDispute = (order: Order) => {
+    alert(
+      `Đã tiếp nhận yêu cầu hỗ trợ khiếu nại cho đơn hàng GM${order.orderCode}. GudMarket sẽ tiếp tục giữ tiền an toàn để bảo vệ bạn!`
+    );
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -295,10 +382,12 @@ export function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setModalView('STATE_C')}
-                  className="h-9 px-3 inline-flex items-center text-xs sm:text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 rounded-lg transition-colors cursor-pointer"
+                  onClick={() => setCurrentView('ORDERS')}
+                  className={`h-9 px-3 inline-flex items-center text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    currentView === 'ORDERS' ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80'
+                  }`}
                 >
-                  Đơn mua
+                  Đơn hàng
                 </button>
                 <button
                   type="button"
@@ -342,7 +431,7 @@ export function App() {
                     isOpen={isUserMenuOpen}
                     onClose={() => setIsUserMenuOpen(false)}
                     onLogout={handleLogout}
-                    onOpenMyOrders={() => setModalView('STATE_C')}
+                    onOpenMyOrders={() => setCurrentView('ORDERS')}
                     onOpenMyListings={() => setCurrentView('MY_LISTINGS')}
                   />
                 </div>
@@ -367,6 +456,15 @@ export function App() {
             listings={products.filter((p) => p.sellerId === currentUser?.id || p.sellerName === currentUser?.fullName)}
             onOpenCreateModal={() => setIsCreateListingOpen(true)}
             onToggleListingStatus={handleToggleListingStatus}
+          />
+        ) : currentView === 'ORDERS' ? (
+          <OrdersView
+            orders={orders}
+            currentUserId={currentUser?.id || 'user-default'}
+            onBackToMarketplace={() => setCurrentView('CATALOG')}
+            onUpdateTrackingCode={handleUpdateTrackingCode}
+            onConfirmReceived={handleConfirmReceived}
+            onRequestDispute={handleRequestDispute}
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
