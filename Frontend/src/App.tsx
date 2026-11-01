@@ -9,6 +9,7 @@ import { UserMenuDropdown } from './components/UserMenuDropdown';
 import { MyListingsView } from './pages/MyListingsView';
 import { OrdersView } from './pages/OrdersView';
 import { WalletView } from './pages/WalletView';
+import { AdminDashboardView } from './pages/AdminDashboardView';
 import { setAuthToken } from './api/client';
 
 const INITIAL_PRODUCTS: Product[] = [
@@ -90,6 +91,19 @@ const INITIAL_PRODUCTS: Product[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: 'prod-pending-keychron',
+    sellerId: 'user-default',
+    sellerName: 'Nguyễn Văn An',
+    sellerLocation: 'Hà Nội',
+    title: 'Bàn phím cơ Keychron K2 Pro Wireless RGB',
+    description: 'Bản nhôm hotswap switch red, gõ êm, đầy đủ phụ kiện cap puller.',
+    price: 1850000,
+    imageUrls: ['https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80'],
+    status: 'PENDING_APPROVAL',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 const SAMPLE_ORDER: Order = {
@@ -147,6 +161,25 @@ const INITIAL_ORDERS: Order[] = [
     createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: 'order-disputed-sample',
+    orderCode: 619283,
+    productId: 'prod-apple-watch-s8',
+    productTitle: 'Apple Watch Series 8 Bản Nhôm 41mm GPS',
+    productImageUrl: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=600&q=80',
+    buyerId: 'user-buyer-other',
+    sellerId: 'user-default',
+    sellerName: 'Nguyễn Văn An',
+    amount: 4600000,
+    platformFee: 230000,
+    sellerNetAmount: 4370000,
+    status: 'DISPUTED',
+    disputeReason: 'Người mua nhận hàng báo màn hình bị sọc dọc, yêu cầu hoàn tiền.',
+    buyerEvidenceUrls: ['https://images.unsplash.com/photo-1591337676887-a217a6970a8a?auto=format&fit=crop&w=400&q=80'],
+    deadlineAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 const INITIAL_TRANSACTIONS: WalletTransaction[] = [
@@ -174,23 +207,36 @@ const INITIAL_TRANSACTIONS: WalletTransaction[] = [
   },
 ];
 
+const INITIAL_WITHDRAW_REQUESTS: WithdrawRequest[] = [
+  {
+    id: 'wd-sample-1',
+    userId: 'user-seller-2',
+    amount: 1500000,
+    bankName: 'Vietcombank (VCB)',
+    accountNo: '1012938475',
+    accountName: 'LE HOANG',
+    status: 'PENDING',
+    createdAt: new Date().toISOString(),
+  },
+];
+
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>({
     id: 'user-default',
     email: 'nguyenvanan@gmail.com',
     fullName: 'Nguyễn Văn An',
-    role: 'USER',
+    role: 'ADMIN',
     balance: 2500000,
     lockedBalance: 0,
     createdAt: '2026-11-01T00:00:00.000Z',
     updatedAt: '2026-11-01T00:00:00.000Z',
   });
 
-  const [currentView, setCurrentView] = useState<'CATALOG' | 'MY_LISTINGS' | 'ORDERS' | 'WALLET'>('CATALOG');
+  const [currentView, setCurrentView] = useState<'CATALOG' | 'MY_LISTINGS' | 'ORDERS' | 'WALLET' | 'ADMIN'>('CATALOG');
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>(INITIAL_TRANSACTIONS);
-  const [withdrawRequests, setWithdrawRequests] = useState<WithdrawRequest[]>([]);
+  const [withdrawRequests, setWithdrawRequests] = useState<WithdrawRequest[]>(INITIAL_WITHDRAW_REQUESTS);
   const [disputeModalOrder, setDisputeModalOrder] = useState<Order | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
@@ -409,6 +455,193 @@ export function App() {
     setWalletTransactions((prev) => [newTx, ...prev]);
   };
 
+  // Admin Operations Handlers
+  const handleAdminApproveProduct = (productId: string) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, status: 'AVAILABLE' } : p))
+    );
+  };
+
+  const handleAdminRejectProduct = (productId: string) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, status: 'REJECTED' } : p))
+    );
+  };
+
+  const handleAdminResolveDispute = (
+    orderId: string,
+    decision: 'REFUND_BUYER' | 'PAY_SELLER' | 'REQUIRE_RETURN',
+    note: string
+  ) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+
+    if (decision === 'REFUND_BUYER') {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                status: 'CLOSED_REFUNDED',
+                adminResolutionNote: note,
+                resolvedBy: currentUser?.fullName || 'Admin GudMarket',
+                updatedAt: new Date().toISOString(),
+              }
+            : o
+        )
+      );
+
+      if (currentUser) {
+        const refundAmt = targetOrder.amount;
+        const newBal = currentUser.balance + refundAmt;
+        setCurrentUser({ ...currentUser, balance: newBal });
+
+        const refundTx: WalletTransaction = {
+          id: 'tx-' + Date.now(),
+          userId: currentUser.id,
+          orderId: targetOrder.id,
+          type: 'ESCROW_REFUND',
+          amount: refundAmt,
+          lockedDelta: 0,
+          balanceAfter: newBal,
+          lockedBalanceAfter: currentUser.lockedBalance,
+          description: `Admin hoàn tiền 100% đơn hàng GM${targetOrder.orderCode}: ${note}`,
+          createdAt: new Date().toISOString(),
+        };
+        setWalletTransactions((prev) => [refundTx, ...prev]);
+      }
+    } else if (decision === 'PAY_SELLER') {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                status: 'COMPLETED',
+                adminResolutionNote: note,
+                resolvedBy: currentUser?.fullName || 'Admin GudMarket',
+                completedAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              }
+            : o
+        )
+      );
+
+      if (currentUser) {
+        const netAmt = targetOrder.sellerNetAmount;
+        const newBal = currentUser.balance + netAmt;
+        setCurrentUser({ ...currentUser, balance: newBal });
+
+        const releaseTx: WalletTransaction = {
+          id: 'tx-' + Date.now(),
+          userId: currentUser.id,
+          orderId: targetOrder.id,
+          type: 'ESCROW_RELEASE',
+          amount: netAmt,
+          lockedDelta: 0,
+          balanceAfter: newBal,
+          lockedBalanceAfter: currentUser.lockedBalance,
+          description: `Admin phán quyết chuyển tiền bán hàng GM${targetOrder.orderCode}: ${note}`,
+          createdAt: new Date().toISOString(),
+        };
+        setWalletTransactions((prev) => [releaseTx, ...prev]);
+      }
+    } else if (decision === 'REQUIRE_RETURN') {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                status: 'RETURN_PENDING',
+                adminResolutionNote: note,
+                resolvedBy: currentUser?.fullName || 'Admin GudMarket',
+                updatedAt: new Date().toISOString(),
+              }
+            : o
+        )
+      );
+    }
+  };
+
+  const handleAdminApproveWithdraw = (requestId: string) => {
+    const targetWd = withdrawRequests.find((w) => w.id === requestId);
+    if (!targetWd) return;
+
+    setWithdrawRequests((prev) =>
+      prev.map((w) =>
+        w.id === requestId
+          ? {
+              ...w,
+              status: 'COMPLETED',
+              processedAt: new Date().toISOString(),
+              processedBy: currentUser?.fullName || 'Admin',
+            }
+          : w
+      )
+    );
+
+    if (currentUser) {
+      const newLocked = Math.max(0, currentUser.lockedBalance - targetWd.amount);
+      setCurrentUser({ ...currentUser, lockedBalance: newLocked });
+
+      const completeTx: WalletTransaction = {
+        id: 'tx-' + Date.now(),
+        userId: currentUser.id,
+        withdrawRequestId: targetWd.id,
+        type: 'WITHDRAW_COMPLETE',
+        amount: 0,
+        lockedDelta: -targetWd.amount,
+        balanceAfter: currentUser.balance,
+        lockedBalanceAfter: newLocked,
+        description: `Admin xác nhận chuyển tiền VietQR thành công (${targetWd.bankName} - ${targetWd.accountNo})`,
+        createdAt: new Date().toISOString(),
+      };
+      setWalletTransactions((prev) => [completeTx, ...prev]);
+    }
+  };
+
+  const handleAdminRejectWithdraw = (requestId: string, reason?: string) => {
+    const targetWd = withdrawRequests.find((w) => w.id === requestId);
+    if (!targetWd) return;
+
+    setWithdrawRequests((prev) =>
+      prev.map((w) =>
+        w.id === requestId
+          ? {
+              ...w,
+              status: 'REJECTED',
+              adminNote: reason || 'Từ chối rút tiền',
+              processedAt: new Date().toISOString(),
+              processedBy: currentUser?.fullName || 'Admin',
+            }
+          : w
+      )
+    );
+
+    if (currentUser) {
+      const newBal = currentUser.balance + targetWd.amount;
+      const newLocked = Math.max(0, currentUser.lockedBalance - targetWd.amount);
+      setCurrentUser({
+        ...currentUser,
+        balance: newBal,
+        lockedBalance: newLocked,
+      });
+
+      const unlockTx: WalletTransaction = {
+        id: 'tx-' + Date.now(),
+        userId: currentUser.id,
+        withdrawRequestId: targetWd.id,
+        type: 'WITHDRAW_REJECT_UNLOCK',
+        amount: targetWd.amount,
+        lockedDelta: -targetWd.amount,
+        balanceAfter: newBal,
+        lockedBalanceAfter: newLocked,
+        description: `Lệnh rút tiền bị từ chối: ${reason || 'Sai thông tin ngân hàng'}. Đã hoàn lại số dư.`,
+        createdAt: new Date().toISOString(),
+      };
+      setWalletTransactions((prev) => [unlockTx, ...prev]);
+    }
+  };
+
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard?.writeText(text);
     setCopyFeedback(label);
@@ -556,6 +789,20 @@ export function App() {
                 >
                   Đơn hàng
                 </button>
+                {currentUser.role === 'ADMIN' && (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentView('ADMIN')}
+                    className={`h-9 px-3 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-colors cursor-pointer border ${
+                      currentView === 'ADMIN'
+                        ? 'bg-emerald-800 text-white border-emerald-800'
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-200/80 hover:bg-emerald-100'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                    <span>Quản trị sàn</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsCreateListingOpen(true)}
@@ -601,6 +848,7 @@ export function App() {
                     onOpenAccount={() => setCurrentView('WALLET')}
                     onOpenMyOrders={() => setCurrentView('ORDERS')}
                     onOpenMyListings={() => setCurrentView('MY_LISTINGS')}
+                    onOpenAdmin={() => setCurrentView('ADMIN')}
                   />
                 </div>
               </>
@@ -644,6 +892,18 @@ export function App() {
             withdrawRequests={withdrawRequests}
             onBackToMarketplace={() => setCurrentView('CATALOG')}
             onRequestWithdraw={handleRequestWithdraw}
+          />
+        ) : currentView === 'ADMIN' ? (
+          <AdminDashboardView
+            products={products}
+            orders={orders}
+            withdrawRequests={withdrawRequests}
+            onApproveProduct={handleAdminApproveProduct}
+            onRejectProduct={handleAdminRejectProduct}
+            onResolveDispute={handleAdminResolveDispute}
+            onApproveWithdraw={handleAdminApproveWithdraw}
+            onRejectWithdraw={handleAdminRejectWithdraw}
+            onBackToMarketplace={() => setCurrentView('CATALOG')}
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
