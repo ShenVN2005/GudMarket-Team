@@ -342,6 +342,7 @@ export function App() {
                     isOpen={isUserMenuOpen}
                     onClose={() => setIsUserMenuOpen(false)}
                     onLogout={handleLogout}
+                    onOpenMyOrders={() => setModalView('STATE_C')}
                     onOpenMyListings={() => setCurrentView('MY_LISTINGS')}
                   />
                 </div>
