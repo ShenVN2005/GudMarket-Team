@@ -4,6 +4,7 @@ import { formatCurrency, ORDER_STATUS_LABELS } from './api/types';
 import { AtmosphericBackground } from './components/AtmosphericBackground';
 import { AuthModal } from './components/AuthModal';
 import { CreateListingModal } from './components/CreateListingModal';
+import { UserMenuDropdown } from './components/UserMenuDropdown';
 import { MyListingsView } from './pages/MyListingsView';
 import { setAuthToken } from './api/client';
 
@@ -124,6 +125,7 @@ export function App() {
 
   // Modals
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isCreateListingOpen, setIsCreateListingOpen] = useState(false);
   const [modalView, setModalView] = useState<'NONE' | 'STATE_A' | 'STATE_B' | 'STATE_C'>('NONE');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -308,14 +310,41 @@ export function App() {
                   </svg>
                   <span>Đăng bán</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  title="Đăng xuất"
-                  className="h-9 px-2 text-xs text-zinc-400 hover:text-zinc-700 cursor-pointer"
-                >
-                  Thoát
-                </button>
+
+                {/* User Avatar Pill with Dropdown Panel */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    aria-label="Menu tài khoản"
+                    className="h-9 px-2.5 rounded-xl flex items-center gap-2 hover:bg-zinc-100 transition-colors cursor-pointer border border-zinc-200/80"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-zinc-900 text-white text-xs font-bold flex items-center justify-center">
+                      {currentUser.fullName
+                        ? currentUser.fullName
+                            .split(' ')
+                            .map((w) => w[0])
+                            .slice(-2)
+                            .join('')
+                            .toUpperCase()
+                        : 'U'}
+                    </div>
+                    <span className="hidden sm:inline text-sm font-semibold text-zinc-900 max-w-[100px] truncate">
+                      {currentUser.fullName.split(' ').slice(-1)[0]}
+                    </span>
+                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="text-zinc-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
+
+                  <UserMenuDropdown
+                    user={currentUser}
+                    isOpen={isUserMenuOpen}
+                    onClose={() => setIsUserMenuOpen(false)}
+                    onLogout={handleLogout}
+                    onOpenMyListings={() => setCurrentView('MY_LISTINGS')}
+                  />
+                </div>
               </>
             ) : (
               <button
@@ -438,24 +467,23 @@ export function App() {
 
                 {/* Precision 3-Node Stepper */}
                 <div className="pt-3 border-t border-zinc-100">
-                  <div className="relative h-7 flex items-center">
-                    <div className="w-full mx-[16.666%] h-1.5 bg-zinc-100 rounded-full overflow-hidden" aria-hidden="true">
+                  <div className="relative h-10 flex items-center">
+                    <div className="w-full mx-[16.666%] h-2 bg-zinc-100 rounded-full overflow-hidden" aria-hidden="true">
                       <div
                         className="h-full bg-emerald-600 rounded-full transition-all duration-500"
                         style={{ width: trackNode === 0 ? '0%' : trackNode === 1 ? '50%' : '100%' }}
                       />
                     </div>
                     <span
-                      className="absolute top-1/2 -translate-y-1/2 bg-emerald-700 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm ring-4 ring-emerald-50 tabular-nums whitespace-nowrap transition-all duration-500"
+                      className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 bg-emerald-700 text-white text-sm font-bold px-3.5 py-1.5 rounded-full shadow-md ring-4 ring-emerald-50 tabular-nums whitespace-nowrap transition-all duration-500 leading-none"
                       style={{
                         left: trackNode === 0 ? '16.666%' : trackNode === 1 ? '50%' : '83.333%',
-                        transform: 'translate(-50%, -50%)',
                       }}
                     >
                       {formatCurrency(activeOrder.amount)}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 mt-1.5 text-center text-[11px]">
+                  <div className="grid grid-cols-3 mt-2 text-center text-xs">
                     <span className={trackNode === 0 ? 'font-semibold text-emerald-700' : 'text-zinc-500'}>Bạn thanh toán</span>
                     <span className={trackNode === 1 ? 'font-semibold text-emerald-700' : 'text-zinc-500'}>GudMarket giữ hộ</span>
                     <span className={trackNode === 2 ? 'font-semibold text-emerald-700' : 'text-zinc-500'}>Người bán nhận tiền</span>
@@ -867,24 +895,23 @@ export function App() {
 
                   {/* Stepper */}
                   <div className="rounded-xl bg-zinc-50 border border-zinc-200/80 px-4 pt-4 pb-3 space-y-2">
-                    <div className="relative h-7 flex items-center">
-                      <div className="w-full mx-[16.666%] h-1.5 bg-zinc-100 rounded-full overflow-hidden" aria-hidden="true">
+                    <div className="relative h-10 flex items-center">
+                      <div className="w-full mx-[16.666%] h-2 bg-zinc-100 rounded-full overflow-hidden" aria-hidden="true">
                         <div
                           className="h-full bg-emerald-600 rounded-full transition-all duration-500"
                           style={{ width: trackNode === 0 ? '0%' : trackNode === 1 ? '50%' : '100%' }}
                         />
                       </div>
                       <span
-                        className="absolute top-1/2 -translate-y-1/2 bg-emerald-700 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm ring-4 ring-emerald-50 tabular-nums whitespace-nowrap transition-all duration-500"
+                        className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 bg-emerald-700 text-white text-sm font-bold px-3.5 py-1.5 rounded-full shadow-md ring-4 ring-emerald-50 tabular-nums whitespace-nowrap transition-all duration-500 leading-none"
                         style={{
                           left: trackNode === 0 ? '16.666%' : trackNode === 1 ? '50%' : '83.333%',
-                          transform: 'translate(-50%, -50%)',
                         }}
                       >
                         {formatCurrency(activeOrder.amount)}
                       </span>
                     </div>
-                    <div className="grid grid-cols-3 text-center text-[11px]">
+                    <div className="grid grid-cols-3 mt-2 text-center text-xs">
                       <span className={trackNode === 0 ? 'font-semibold text-emerald-700' : 'text-zinc-500'}>Bạn thanh toán</span>
                       <span className={trackNode === 1 ? 'font-semibold text-emerald-700' : 'text-zinc-500'}>GudMarket giữ hộ</span>
                       <span className={trackNode === 2 ? 'font-semibold text-emerald-700' : 'text-zinc-500'}>Người bán nhận tiền</span>
