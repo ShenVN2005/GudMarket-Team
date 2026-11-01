@@ -11,6 +11,9 @@ interface OrdersViewProps {
   onConfirmReceived?: (orderId: string) => void;
   onRequestDispute?: (order: Order) => void;
   onPayOrder?: (order: Order) => void;
+  onSubmitReturnTracking?: (orderId: string, returnTrackingCode: string) => void;
+  onConfirmReturnReceived?: (orderId: string) => void;
+  onDisputeReturn?: (orderId: string) => void;
 }
 
 type TabType = 'BUY' | 'SELL';
@@ -24,10 +27,14 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   onConfirmReceived,
   onRequestDispute,
   onPayOrder,
+  onSubmitReturnTracking,
+  onConfirmReturnReceived,
+  onDisputeReturn,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('BUY');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
+  const [returnTrackingInputs, setReturnTrackingInputs] = useState<Record<string, string>>({});
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   // Filter orders by Buy vs Sell
@@ -74,6 +81,19 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
     if (onUpdateTrackingCode) {
       onUpdateTrackingCode(orderId, code);
       setSuccessNotice(`Đã cập nhật mã vận đơn "${code}". Trạng thái chuyển sang Đang giao hàng.`);
+      setTimeout(() => setSuccessNotice(null), 4000);
+    }
+  };
+
+  const handleReturnTrackingSubmit = (orderId: string) => {
+    const code = returnTrackingInputs[orderId]?.trim();
+    if (!code) {
+      alert('Vui lòng nhập mã vận đơn gửi trả hàng!');
+      return;
+    }
+    if (onSubmitReturnTracking) {
+      onSubmitReturnTracking(orderId, code);
+      setSuccessNotice(`Đã cập nhật mã vận đơn trả hàng "${code}". Người bán sẽ kiểm tra khi nhận lại.`);
       setTimeout(() => setSuccessNotice(null), 4000);
     }
   };
@@ -386,6 +406,68 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   </div>
                 )}
 
+                {/* Dispute & Return Banners */}
+                {order.status === 'DISPUTED' && (
+                  <div className="bg-rose-50/70 border border-rose-200/80 rounded-xl p-3.5 space-y-2 text-xs">
+                    <div className="flex items-center gap-2 text-rose-900 font-semibold">
+                      <span className="w-2 h-2 rounded-full bg-rose-600" />
+                      <span>Đang có khiếu nại • GudMarket đang tạm giữ số tiền để bảo vệ hai bên</span>
+                    </div>
+                    {order.disputeReason && (
+                      <p className="text-rose-800 bg-white/70 p-2.5 rounded-lg border border-rose-100">
+                        <strong>Lý do khiếu nại:</strong> {order.disputeReason}
+                      </p>
+                    )}
+                    {order.buyerEvidenceUrls && order.buyerEvidenceUrls.length > 0 && (
+                      <div>
+                        <span className="text-[11px] font-medium text-rose-700">Ảnh/Video bằng chứng:</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          {order.buyerEvidenceUrls.map((url, i) => (
+                            <img
+                              key={i}
+                              src={url}
+                              alt="Bằng chứng"
+                              className="w-12 h-12 object-cover rounded-lg border border-rose-200 cursor-pointer"
+                              onClick={() => window.open(url, '_blank')}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {order.status === 'RETURN_PENDING' && (
+                  <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3.5 text-xs text-amber-900 space-y-1">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <span>Yêu cầu trả hàng đã chấp thuận</span>
+                    </p>
+                    <p className="text-[11px] text-amber-800">
+                      {activeTab === 'BUY'
+                        ? 'Vui lòng đóng gói cẩn thận và nhập mã vận đơn gửi trả hàng về cho người bán.'
+                        : 'Người mua đang chuẩn bị gửi trả hàng về địa chỉ của bạn.'}
+                    </p>
+                  </div>
+                )}
+
+                {order.status === 'RETURNING' && (
+                  <div className="bg-purple-50/70 border border-purple-200/80 rounded-xl p-3.5 text-xs text-purple-900 space-y-1">
+                    <p className="font-semibold">Hàng đang trên đường gửi trả về người bán</p>
+                    <p className="text-[11px] text-purple-800">
+                      Mã vận đơn trả: <strong className="font-mono tabular-nums">{order.returnTrackingCode || 'Đang cập nhật'}</strong>
+                    </p>
+                  </div>
+                )}
+
+                {order.status === 'CLOSED_REFUNDED' && (
+                  <div className="bg-emerald-50/60 border border-emerald-200/60 rounded-xl p-3 text-xs text-emerald-800 flex items-center gap-2">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" strokeWidth="2.2" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Đơn hàng đã giải quyết xong: Tiền đã được hoàn lại 100% vào số dư ví của người mua.</span>
+                  </div>
+                )}
+
                 {/* Action Area by Role & Status */}
                 <div className="pt-2 flex flex-wrap items-center justify-end gap-2.5 border-t border-zinc-100">
                   {/* BUYER ACTIONS */}
@@ -422,6 +504,30 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                             </button>
                           )}
                         </>
+                      )}
+
+                      {order.status === 'RETURN_PENDING' && (
+                        <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="Nhập mã vận đơn trả hàng (VD: TRA849201)"
+                            value={returnTrackingInputs[order.id] || ''}
+                            onChange={(e) =>
+                              setReturnTrackingInputs((prev) => ({
+                                ...prev,
+                                [order.id]: e.target.value,
+                              }))
+                            }
+                            className="h-9 px-3 text-xs bg-zinc-50 border border-zinc-200/90 rounded-lg focus:outline-none focus:border-zinc-800"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleReturnTrackingSubmit(order.id)}
+                            className="h-9 px-4 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+                          >
+                            Xác nhận đã gửi trả hàng
+                          </button>
+                        </div>
                       )}
 
                       {order.status === 'COMPLETED' && (
@@ -466,6 +572,29 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         <span className="text-xs text-blue-700 font-medium">
                           Đang giao hàng • Chờ đơn vị vận chuyển cập nhật đã giao
                         </span>
+                      )}
+
+                      {order.status === 'RETURNING' && (
+                        <div className="flex items-center gap-2">
+                          {onDisputeReturn && (
+                            <button
+                              type="button"
+                              onClick={() => onDisputeReturn(order.id)}
+                              className="px-3.5 py-2 text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Báo hàng trả bị tráo/hỏng
+                            </button>
+                          )}
+                          {onConfirmReturnReceived && (
+                            <button
+                              type="button"
+                              onClick={() => onConfirmReturnReceived(order.id)}
+                              className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+                            >
+                              Đã nhận lại hàng &amp; Đồng ý hoàn tiền
+                            </button>
+                          )}
+                        </div>
                       )}
 
                       {order.status === 'COMPLETED' && (

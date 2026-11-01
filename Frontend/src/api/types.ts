@@ -197,6 +197,17 @@ export const PRODUCT_STATUS_LABELS: Record<ProductStatus, { label: string; badge
   HIDDEN: { label: 'Đang ẩn', badgeClass: 'bg-zinc-100 text-zinc-500 border-zinc-200' },
 };
 
+export const WALLET_TX_LABELS: Record<WalletTransactionType, { label: string; isPositive: boolean }> = {
+  PAYOS_ESCROW_IN: { label: 'Nạp tiền thanh toán qua VietQR', isPositive: true },
+  ORDER_PAYMENT: { label: 'Thanh toán mua hàng', isPositive: false },
+  ESCROW_RELEASE: { label: 'Tiền bán hàng đã hoàn tất', isPositive: true },
+  ESCROW_REFUND: { label: 'Hoàn tiền đơn hàng vào ví', isPositive: true },
+  LATE_OR_OVERPAYMENT_CREDIT: { label: 'Cộng tiền thanh toán bổ sung', isPositive: true },
+  WITHDRAW_LOCK: { label: 'Tạo lệnh rút tiền về ngân hàng', isPositive: false },
+  WITHDRAW_COMPLETE: { label: 'Rút tiền ngân hàng thành công', isPositive: false },
+  WITHDRAW_REJECT_UNLOCK: { label: 'Hoàn lại số dư rút tiền', isPositive: true },
+};
+
 export const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
 };

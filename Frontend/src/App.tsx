@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import type { Product, Order, User, ProductStatus } from './api/types';
+import type { Product, Order, User, ProductStatus, WalletTransaction, WithdrawRequest } from './api/types';
 import { formatCurrency, ORDER_STATUS_LABELS } from './api/types';
 import { AtmosphericBackground } from './components/AtmosphericBackground';
 import { AuthModal } from './components/AuthModal';
 import { CreateListingModal } from './components/CreateListingModal';
+import { DisputeModal } from './components/DisputeModal';
 import { UserMenuDropdown } from './components/UserMenuDropdown';
 import { MyListingsView } from './pages/MyListingsView';
 import { OrdersView } from './pages/OrdersView';
+import { WalletView } from './pages/WalletView';
 import { setAuthToken } from './api/client';
 
 const INITIAL_PRODUCTS: Product[] = [
@@ -147,6 +149,31 @@ const INITIAL_ORDERS: Order[] = [
   },
 ];
 
+const INITIAL_TRANSACTIONS: WalletTransaction[] = [
+  {
+    id: 'tx-1',
+    userId: 'user-default',
+    type: 'ESCROW_RELEASE',
+    amount: 2500000,
+    lockedDelta: 0,
+    balanceAfter: 2500000,
+    lockedBalanceAfter: 0,
+    description: 'Nhận tiền bán Bàn làm việc gỗ thông Vintage (Mã đơn GM628192)',
+    createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+  },
+  {
+    id: 'tx-0',
+    userId: 'user-default',
+    type: 'PAYOS_ESCROW_IN',
+    amount: 11500000,
+    lockedDelta: 0,
+    balanceAfter: 11500000,
+    lockedBalanceAfter: 0,
+    description: 'Thanh toán mua MacBook Air M1 2020 qua VietQR',
+    createdAt: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
+  },
+];
+
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>({
     id: 'user-default',
@@ -159,9 +186,12 @@ export function App() {
     updatedAt: '2026-11-01T00:00:00.000Z',
   });
 
-  const [currentView, setCurrentView] = useState<'CATALOG' | 'MY_LISTINGS' | 'ORDERS'>('CATALOG');
+  const [currentView, setCurrentView] = useState<'CATALOG' | 'MY_LISTINGS' | 'ORDERS' | 'WALLET'>('CATALOG');
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>(INITIAL_TRANSACTIONS);
+  const [withdrawRequests, setWithdrawRequests] = useState<WithdrawRequest[]>([]);
+  const [disputeModalOrder, setDisputeModalOrder] = useState<Order | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
 
@@ -245,10 +275,138 @@ export function App() {
     alert('Đã xác nhận nhận hàng đúng mô tả! GudMarket đã chuyển tiền cho người bán.');
   };
 
-  const handleRequestDispute = (order: Order) => {
-    alert(
-      `Đã tiếp nhận yêu cầu hỗ trợ khiếu nại cho đơn hàng GM${order.orderCode}. GudMarket sẽ tiếp tục giữ tiền an toàn để bảo vệ bạn!`
+  const handleOpenDispute = (order: Order) => {
+    setDisputeModalOrder(order);
+  };
+
+  const handleSubmitDispute = (orderId: string, reason: string, evidenceUrls: string[]) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              status: 'DISPUTED',
+              disputeReason: reason,
+              buyerEvidenceUrls: evidenceUrls,
+              updatedAt: new Date().toISOString(),
+            }
+          : o
+      )
     );
+    alert('Đã gửi yêu cầu khiếu nại! Tiền của đơn hàng này đang được GudMarket bảo vệ an toàn.');
+  };
+
+  const handleSubmitReturnTracking = (orderId: string, returnCode: string) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              status: 'RETURNING',
+              returnTrackingCode: returnCode,
+              updatedAt: new Date().toISOString(),
+            }
+          : o
+      )
+    );
+  };
+
+  const handleConfirmReturnReceived = (orderId: string) => {
+    const orderToRefund = orders.find((o) => o.id === orderId);
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              status: 'CLOSED_REFUNDED',
+              updatedAt: new Date().toISOString(),
+            }
+          : o
+      )
+    );
+
+    if (orderToRefund && currentUser) {
+      const refundAmount = orderToRefund.amount;
+      const newBal = currentUser.balance + refundAmount;
+      setCurrentUser({
+        ...currentUser,
+        balance: newBal,
+      });
+
+      const newTx: WalletTransaction = {
+        id: 'tx-' + Date.now(),
+        userId: currentUser.id,
+        orderId: orderToRefund.id,
+        type: 'ESCROW_REFUND',
+        amount: refundAmount,
+        lockedDelta: 0,
+        balanceAfter: newBal,
+        lockedBalanceAfter: currentUser.lockedBalance,
+        description: `Hoàn tiền 100% đơn hàng GM${orderToRefund.orderCode} (Người bán đã nhận lại hàng)`,
+        createdAt: new Date().toISOString(),
+      };
+      setWalletTransactions((prev) => [newTx, ...prev]);
+    }
+
+    alert('Đã xác nhận nhận lại hàng thành công! Hệ thống đã hoàn tiền cho người mua.');
+  };
+
+  const handleDisputeReturn = (orderId: string) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              status: 'RETURN_DISPUTED',
+              updatedAt: new Date().toISOString(),
+            }
+          : o
+      )
+    );
+    alert('Đã ghi nhận báo cáo hàng trả bị hư hỏng/tráo đổi! Admin GudMarket sẽ trực tiếp kiểm tra và xử lý.');
+  };
+
+  const handleRequestWithdraw = (
+    amount: number,
+    bankName: string,
+    accountNo: string,
+    accountName: string
+  ) => {
+    if (!currentUser) return;
+    const newBal = currentUser.balance - amount;
+    const newLocked = currentUser.lockedBalance + amount;
+
+    setCurrentUser({
+      ...currentUser,
+      balance: newBal,
+      lockedBalance: newLocked,
+    });
+
+    const newRequest: WithdrawRequest = {
+      id: 'wd-' + Date.now(),
+      userId: currentUser.id,
+      amount,
+      bankName,
+      accountNo,
+      accountName,
+      status: 'PENDING',
+      createdAt: new Date().toISOString(),
+    };
+    setWithdrawRequests((prev) => [newRequest, ...prev]);
+
+    const newTx: WalletTransaction = {
+      id: 'tx-' + Date.now(),
+      userId: currentUser.id,
+      withdrawRequestId: newRequest.id,
+      type: 'WITHDRAW_LOCK',
+      amount: -amount,
+      lockedDelta: amount,
+      balanceAfter: newBal,
+      lockedBalanceAfter: newLocked,
+      description: `Tạo lệnh rút tiền về ${bankName} (${accountNo})`,
+      createdAt: new Date().toISOString(),
+    };
+    setWalletTransactions((prev) => [newTx, ...prev]);
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -365,12 +523,21 @@ export function App() {
           <nav aria-label="Điều hướng người dùng" className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
             {currentUser ? (
               <>
-                <div aria-label="Số dư ví hiện tại" className="inline-flex h-9 px-3 items-center gap-1.5 text-xs font-medium text-zinc-600 bg-zinc-100/80 border border-zinc-200/60 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('WALLET')}
+                  aria-label="Xem ví GudMarket"
+                  className={`inline-flex h-9 px-3 items-center gap-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer ${
+                    currentView === 'WALLET'
+                      ? 'bg-zinc-900 text-white border-zinc-900'
+                      : 'text-zinc-700 bg-zinc-100/90 hover:bg-zinc-200/80 border-zinc-200/80'
+                  }`}
+                >
                   <span className="hidden md:inline">Số dư ví:</span>
-                  <span className="text-zinc-900 font-semibold tabular-nums">
+                  <span className="font-bold tabular-nums">
                     {formatCurrency(currentUser.balance)}
                   </span>
-                </div>
+                </button>
                 <button
                   type="button"
                   onClick={() => setCurrentView('MY_LISTINGS')}
@@ -431,6 +598,7 @@ export function App() {
                     isOpen={isUserMenuOpen}
                     onClose={() => setIsUserMenuOpen(false)}
                     onLogout={handleLogout}
+                    onOpenAccount={() => setCurrentView('WALLET')}
                     onOpenMyOrders={() => setCurrentView('ORDERS')}
                     onOpenMyListings={() => setCurrentView('MY_LISTINGS')}
                   />
@@ -464,7 +632,18 @@ export function App() {
             onBackToMarketplace={() => setCurrentView('CATALOG')}
             onUpdateTrackingCode={handleUpdateTrackingCode}
             onConfirmReceived={handleConfirmReceived}
-            onRequestDispute={handleRequestDispute}
+            onRequestDispute={handleOpenDispute}
+            onSubmitReturnTracking={handleSubmitReturnTracking}
+            onConfirmReturnReceived={handleConfirmReturnReceived}
+            onDisputeReturn={handleDisputeReturn}
+          />
+        ) : currentView === 'WALLET' && currentUser ? (
+          <WalletView
+            user={currentUser}
+            transactions={walletTransactions}
+            withdrawRequests={withdrawRequests}
+            onBackToMarketplace={() => setCurrentView('CATALOG')}
+            onRequestWithdraw={handleRequestWithdraw}
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
@@ -1048,6 +1227,14 @@ export function App() {
           </div>
         </div>
       )}
+
+      {/* Dispute / Refund Request Modal */}
+      <DisputeModal
+        order={disputeModalOrder}
+        isOpen={!!disputeModalOrder}
+        onClose={() => setDisputeModalOrder(null)}
+        onSubmitDispute={handleSubmitDispute}
+      />
 
       {/* 5. FOOTER */}
       <footer className="mt-16 border-t border-zinc-200/80 bg-white py-8 text-xs text-zinc-500">
