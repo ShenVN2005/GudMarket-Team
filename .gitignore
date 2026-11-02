@@ -4,7 +4,17 @@
 /TODOLIST
 /.impeccable
 /FrontEndDev
+
+# .NET Build artifacts
 [Bb]in/
 [Oo]bj/
+**/bin/
+**/obj/
+
+# Node dependencies
 node_modules/
+**/node_modules/
+
+# Environment files
 .env
+*.env
