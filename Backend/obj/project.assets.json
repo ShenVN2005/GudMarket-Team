@@ -452,11 +452,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/namnguyen/Documents/Cốt/GudMarket/Backend/Backend.csproj",
+      "projectUniqueName": "/home/namnguyen/Documents/Cốt/GudMarket-Team/Backend/Backend.csproj",
       "projectName": "Backend",
-      "projectPath": "/home/namnguyen/Documents/Cốt/GudMarket/Backend/Backend.csproj",
+      "projectPath": "/home/namnguyen/Documents/Cốt/GudMarket-Team/Backend/Backend.csproj",
       "packagesPath": "/home/namnguyen/.nuget/packages/",
-      "outputPath": "/home/namnguyen/Documents/Cốt/GudMarket/Backend/obj/",
+      "outputPath": "/home/namnguyen/Documents/Cốt/GudMarket-Team/Backend/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/namnguyen/.nuget/NuGet/NuGet.Config"
