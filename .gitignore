@@ -4,3 +4,5 @@
 /TODOLIST
 /.impeccable
 /FrontEndDev
+[Bb]in/
+[Oo]bj/node_modules/
